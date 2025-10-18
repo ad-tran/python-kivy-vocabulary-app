@@ -1,0 +1,7 @@
+Kivy==2.3.1
+numpy==1.24.3
+numpy==1.22.0
+openai_whisper==20250625
+silfont==1.8.0
+sounddevice==0.5.1
+tts==0.22.0
