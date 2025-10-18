@@ -7,6 +7,7 @@ from kivy.core.window import Window
 Window.size = (800, 1000)
 
 class VocaMainApp(App):
+    title = "VocaApp"
     def build(self):
         root = VocabularyApp()
         # ProgressStore am App-Objekt referenzieren (für Backups im on_stop)

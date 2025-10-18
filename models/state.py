@@ -28,7 +28,7 @@ class AppState:
 
     tongue_twisters: set[str] = field(default_factory=set)
     expressions: list[str] = field(default_factory=list)
-    learn_order_mode: str = "Zufällig"
+    learn_order_mode: str = "Random"
 
     # UI-Cache/Zähler (nicht persistiert)
     word_history: list[str] = field(default_factory=list)

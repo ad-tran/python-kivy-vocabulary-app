@@ -17,12 +17,23 @@ class LearnScreen:
 
         # Modus: Reihenfolge
         modes = ("Random", "Newest", "Oldest")
-        if not hasattr(self, "learn_order_mode") or self.learn_order_mode not in modes:
-            self.learn_order_mode = "Random"
+        prefs = self._get_prefs()
+        saved_mode = "Random"
+        try:
+            if prefs.exists("learn"): saved_mode = prefs.get("learn").get("order_mode") or "Random"
+        except Exception: pass
+        self.learn_order_mode = saved_mode if saved_mode in modes else "Random"
         order_bar = BoxLayout(size_hint=(1, 0.10))
         order_lbl = Label(text="Order:", font_size=24, size_hint=(None, 1), width=170, color=(0.9,0.95,1,1))
         order_spin = Spinner(text=self.learn_order_mode, values=modes, size_hint=(None, 1), width=180)
-        order_spin.bind(text=self._on_learn_order_changed)
+        def _on_order(inst, val):
+            try: prefs.put("learn", order_mode=val)
+            except Exception: pass
+            if hasattr(self, "_on_learn_order_changed"):
+                self._on_learn_order_changed(inst, val)
+            else:
+                self.learn_order_mode = val
+        order_spin.bind(text=_on_order)
         order_bar.add_widget(order_lbl)
         order_bar.add_widget(order_spin)
         root.add_widget(order_bar)

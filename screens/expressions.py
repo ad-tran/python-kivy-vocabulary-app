@@ -1,4 +1,3 @@
-# filepath: /Users/duongtran/Documents/Python/VocaApp/screens/expressions.py
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.scrollview import ScrollView

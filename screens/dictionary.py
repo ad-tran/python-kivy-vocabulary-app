@@ -7,8 +7,22 @@ from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
 from kivy.uix.togglebutton import ToggleButton
 from VocaApp.ui.widgets import RoundedButton as Button
+import re
 
 class DictionaryScreen:
+    # Normalize a single word input (used when renaming/adding)
+    def _sanitize_single_word(self, text: str) -> str:
+        s = (text or "").strip()
+        if s.startswith("- "):
+            s = s[2:]
+        s = s.replace("’", "'").replace("–", "-").replace("—", "-")
+        s = re.sub(r"\s+", " ", s)
+        # take the first token before space/comma/slash
+        s = re.split(r"[,\s/]+", s)[0]
+        # strip surrounding punctuation
+        s = s.strip(" .,:;!?\"'()[]{}")
+        return s
+
     def _adjust_label_height(self, label):
         label.text_size = (label.width, None)
         label.height = label.texture_size[1]

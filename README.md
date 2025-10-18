@@ -43,7 +43,7 @@ A cross‑platform vocabulary learning app built with Python and Kivy. Add new w
 ### 1) Clone the repository
 
 ```bash
-git clone https://github.com/<your-user>/<your-repo>.git
+git clone https://github.com/https://github.com/ad-tran/python-kivy-vocabulary-app.git
 cd <your-repo>/VocaApp
 ```
 

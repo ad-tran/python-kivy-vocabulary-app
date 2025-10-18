@@ -17,6 +17,9 @@ from kivy.core.text import LabelBase
 from kivy.clock import Clock
 from kivy.animation import Animation
 from kivy.metrics import sp
+from kivy.app import App
+from kivy.storage.jsonstore import JsonStore
+import os
 from VocaApp.ui.widgets import RoundedButton as Button
 from VocaApp.services.tts import TTSService
 from VocaApp.services.stt import STTService
@@ -25,11 +28,29 @@ from .dictionary import DictionaryScreen
 from .expressions import ExpressionsScreen
 from .learn import LearnScreen
 from .review import ReviewScreen
-from .dashboard import DashboardScreen
+from VocaApp.screens.dashboard import DashboardScreen
+from VocaApp.models.state import AppState
 
 class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScreen, DashboardScreen, BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # State MUSS vor Property-Settern existieren
+        self.state = AppState()
+        # optionale Defaults – via Proxy-Properties, damit ProgressStore Felder vorfindet
+        self.vocabulary = []
+        self.known_words = set()
+        self.new_words = set()
+        self.known_sequence = []
+        self.new_sequence = []
+        self.user_words = set()
+        self.removed_words = set()
+        self.word_details = {}
+        self.word_ipa = {}
+        self.expressions = []
+        self.learned_session = []
+        # Newest-removed-first order for the removed list (stores original-case words)
+        self.removed_sequence: list[str] = []
+
         self.orientation = 'vertical'
         self.padding = 20
         self.spacing = 20
@@ -84,20 +105,9 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
             return
 
         self.displayed_words = set()
-        self.current_word = None
-        self.known_words = set()
-        self.new_words = set()
-        self.known_sequence = []
-        self.new_sequence = []
-        self.user_words = set()
-        self.removed_words = set()
-        self.learned_session = []
-        self.learn_order_mode = "Zufällig"
+        self.learn_order_mode = "Random"
         self.learned_log: dict[str, str] = {}
-        self.word_details: dict[str, list[dict]] = {}
-        self.word_ipa: dict[str, str] = {}
         self.pos_tags = ("n", "v", "adj", "adv", "prep", "conj")
-        self.expressions: list[str] = []
         self.word_history = []
         self.history_index = -1
         self.max_history = 300
@@ -118,11 +128,66 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self._store = ProgressStore(self, self.progress_file)
         self._store.load()
 
+        # displayed_words ist nur für die aktuelle Sitzung – nach App-Start leeren
+        self.displayed_words = set()
+        self._eligible_dirty = True
+
         # UI
         self._build_ui()
         self._recompute_remaining()
         self.update_display()
         self.update_lists()
+
+    # Proxy-Properties – bestehende Attribute bleiben nutzbar
+    @property
+    def new_words(self): return self.state.new_words
+    @new_words.setter
+    def new_words(self, v): self.state.new_words = set(v) if not isinstance(v, set) else v
+
+    @property
+    def known_words(self): return self.state.known_words
+    @known_words.setter
+    def known_words(self, v): self.state.known_words = set(v) if not isinstance(v, set) else v
+
+    @property
+    def removed_words(self): return self.state.removed_words
+    @removed_words.setter
+    def removed_words(self, v): self.state.removed_words = set(v) if not isinstance(v, set) else v
+
+    @property
+    def new_sequence(self): return self.state.new_sequence
+    @new_sequence.setter
+    def new_sequence(self, v): self.state.new_sequence = list(v)
+
+    @property
+    def known_sequence(self): return self.state.known_sequence
+    @known_sequence.setter
+    def known_sequence(self, v): self.state.known_sequence = list(v)
+
+    @property
+    def word_details(self): return self.state.word_details
+    @word_details.setter
+    def word_details(self, v): self.state.word_details = dict(v)
+
+    @property
+    def word_ipa(self): return self.state.word_ipa
+    @word_ipa.setter
+    def word_ipa(self, v): self.state.word_ipa = dict(v)
+
+    @property
+    def learned_session(self): return self.state.learned_session
+    @learned_session.setter
+    def learned_session(self, v): self.state.learned_session = list(v)
+
+    @property
+    def expressions(self): return self.state.expressions
+    @expressions.setter
+    def expressions(self, v): self.state.expressions = list(v)
+
+    @property
+    def current_word(self): return self.state.current_word
+    @current_word.setter
+    def current_word(self, v): self.state.current_word = v
 
     # ---- UI building (Header, Labels, Lists, Buttons) ----
     def _build_ui(self):
@@ -202,7 +267,7 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self.remove_button.bind(on_press=self.remove_current_word)
         button_layout.add_widget(self.remove_button)
         self.next_button = Button(text="Next word", font_size=30, background_color=(0.4, 0.8, 0.4, 1))
-        self.next_button.bind(on_press=self.next_word)
+        self.next_button.bind(on_release=self.next_word)
         button_layout.add_widget(self.next_button)
         self.add_widget(button_layout)
 
@@ -211,7 +276,7 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self.known_button.bind(on_press=self.open_correct_word_popup)
         classify_layout.add_widget(self.known_button)
         self.unknown_button = Button(text="New word", font_size=30, background_color=(0.9, 0.6, 0.2, 1))
-        self.unknown_button.bind(on_press=self.mark_new)
+        self.unknown_button.bind(on_release=self._on_new_word_clicked)
         classify_layout.add_widget(self.unknown_button)
         self.add_widget(classify_layout)
 
@@ -295,6 +360,112 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         # Wichtig: initialen Zustand setzen (sichtbar/nicht sichtbar)
         Clock.schedule_once(lambda dt: self.update_display(), 0)
 
+    def _on_next_clicked(self, *_):
+        self._go_next()
+        self._queue_main_lists_refresh()
+
+    def _on_new_word_clicked(self, *_):
+        w = (getattr(self, "current_word", "") or "").strip()
+        if not w:
+            return
+        wl = w.lower()
+        # move current to "New"
+        try: self.known_words.discard(w)
+        except Exception: pass
+        try: self.removed_words.discard(wl)
+        except Exception: pass
+        try: self.new_words.add(w)
+        except Exception: pass
+        if hasattr(self, "new_sequence") and w not in self.new_sequence:
+            self.new_sequence.append(w)
+        # refresh UI/state
+        if hasattr(self, "_store"): 
+            try: self._store.save_async()
+            except Exception: pass
+        if hasattr(self, "_rebuild_lists_ui_if_needed"):
+            self._rebuild_lists_ui_if_needed()
+        if hasattr(self, "update_display"):
+            self.update_display()
+        # go next on next frame (after lists updated)
+        Clock.schedule_once(lambda *_: self._go_next(), 0)
+        self._queue_main_lists_refresh()
+
+    def _go_next(self, *_):
+        # 1) Bevorzugt: echten Button-Release auslösen (liefert 'instance' korrekt)
+        btn = getattr(self, "next_button", None)
+        if btn:
+            try:
+                btn.trigger_action(duration=0)
+                return
+            except Exception:
+                try:
+                    btn.dispatch('on_release')
+                    return
+                except Exception:
+                    pass
+
+        # 2) Fallback: vorhandene Next-Methoden robust aufrufen
+        for name in ('next_word', '_next_word', 'show_next_word'):
+            fn = getattr(self, name, None)
+            if callable(fn):
+                try:
+                    fn()          # Methoden ohne args
+                except TypeError:
+                    fn(None)      # Methoden, die (instance) erwarten
+                return
+
+    def _on_new_word_clicked(self, *_):
+        w = (getattr(self, "current_word", "") or "").strip()
+        if not w:
+            return
+        wl = w.lower()
+        # 1) In "New words" verschieben
+        try:
+            if w in self.known_words: self.known_words.discard(w)
+        except Exception:
+            pass
+        try:
+            if wl in self.removed_words: self.removed_words.discard(wl)
+        except Exception:
+            pass
+        try:
+            self.new_words.add(w)
+        except Exception:
+            pass
+        if hasattr(self, "new_sequence") and w not in self.new_sequence:
+            self.new_sequence.append(w)
+        # 2) UI aktualisieren
+        if hasattr(self, "update_display"):
+            self.update_display()
+        if hasattr(self, "_rebuild_lists_ui_if_needed"):
+            self._rebuild_lists_ui_if_needed()
+        # 3) Nächstes Wort anzeigen (nächster Frame)
+        def _go_next(*_a):
+            try:
+                if hasattr(self, "next_button"):
+                    self.next_button.dispatch('on_release'); return
+            except Exception:
+                pass
+            for name in ('_next_word', 'next_word', 'show_next_word', '_go_next'):
+                fn = getattr(self, name, None)
+                if callable(fn): fn(); break
+        Clock.schedule_once(_go_next, 0)
+
+    def _go_next_after_unknown(self, *_):
+        # Versuche zuerst den vorhandenen Next-Button zu verwenden
+        try:
+            if hasattr(self, "next_button") and self.next_button:
+                self.next_button.dispatch('on_release')
+                return
+        except Exception:
+            pass
+        # Fallback: rufe eine Next-Methode direkt auf (je nach Implementierung)
+        for name in ('_next_word', 'next_word', 'show_next_word', '_go_next'):
+            fn = getattr(self, name, None)
+            if callable(fn):
+                fn()
+                break
+
     # ---- Helpers, IO ----
     def _update_rect(self, instance, value):
         self.rect.pos = instance.pos
@@ -371,10 +542,17 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         return self._eligible_pool.pop()
 
     def remove_current_word(self, *_):
-        if not self.current_word:
+        if not getattr(self, "current_word", None):
             return
-        lw = self.current_word.lower()
+        w = self.current_word
+        lw = w.lower()
         self.removed_words.add(lw)
+        try:
+            if w in self.removed_sequence:
+                self.removed_sequence.remove(w)
+        except Exception:
+            pass
+        self.removed_sequence.insert(0, w)
         self.known_words.discard(self.current_word)
         self.new_words.discard(self.current_word)
         try:
@@ -488,7 +666,10 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self.new_container.clear_widgets()
         for w in ordered_new:
             self.new_container.add_widget(self._make_word_button(w, 'new'))
-        removed_display = sorted([w for w in self.vocabulary if w.lower() in removed_lower], key=lambda x: x.lower())
+        # Removed: newest first using removed_sequence; append remaining (alphabetical)
+        ordered = [w for w in self.removed_sequence if w.lower() in removed_lower]
+        remaining = [w for w in self.vocabulary if (w.lower() in removed_lower and w not in ordered)]
+        removed_display = ordered + sorted(remaining, key=lambda x: x.lower())
         self.removed_container.clear_widgets()
         for w in removed_display:
             self.removed_container.add_widget(self._make_removed_button(w))
@@ -601,24 +782,43 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self._store.save_async()
 
     def restore_removed_word(self, word: str):
-        lw = (word or "").lower()
-        if lw in self.removed_words:
-            self.removed_words.discard(lw)
-            self.known_words.discard(word)
-            if word not in self.new_words:
-                self.new_words.add(word)
-            if word not in self.new_sequence:
-                self.new_sequence.append(word)
-            self.current_word = word
-            self.displayed_words.add(word)
-            if not self.word_history or self.word_history[-1] != word:
-                self.word_history.append(word)
-                if len(self.word_history) > self.max_history:
-                    self.word_history = self.word_history[-self.max_history:]
-                self.history_index = len(self.word_history) - 1
-            self.schedule_update_lists()
-            self.update_display()
+        w = (word or "").strip()
+        if not w:
+            return
+        lw = w.lower()
+
+        # 1) Entfernt-Flag und Reihenfolge löschen
+        self.removed_words.discard(lw)
+        try:
+            if hasattr(self, "removed_sequence"):
+                self.removed_sequence.remove(w)
+        except ValueError:
+            pass
+
+        # 2) Neutral: NICHT zu New/Known hinzufügen
+        self.known_words.discard(w)
+        self.new_words.discard(w)
+        try: self.known_sequence.remove(w)
+        except ValueError: pass
+        try: self.new_sequence.remove(w)
+        except ValueError: pass
+
+        # 3) Sofort im Mainscreen anzeigen (wie in Voca.py)
+        self.current_word = w
+        self.displayed_words.add(w)
+        if not self.word_history or self.word_history[-1] != w:
+            self.word_history.append(w)
+            if len(self.word_history) > self.max_history:
+                self.word_history = self.word_history[-self.max_history:]
+            self.history_index = len(self.word_history) - 1
+
+        # 4) UI aktualisieren + speichern
+        self.schedule_update_lists()
+        self.update_display()
+        try:
             self._store.save_async()
+        except Exception:
+            pass
 
     def open_known_list_popup(self, *_):
         words = list(self.known_sequence)
@@ -767,8 +967,8 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self.text_check_input = TextInput(text="", multiline=True, font_size=self.font_text_check_input, size_hint=(1, 0.68))
         content.add_widget(self.text_check_input)
         bar = BoxLayout(size_hint=(1, 0.18), spacing=10)
-        cancel_btn = Button(text="Cancel", font_size=20, background_color=self.theme["closeButton"])
-        check_btn = Button(text="Check", font_size=20, background_color=(0.2, 0.6, 0.2, 1))
+        cancel_btn = Button(text="Cancel", font_size=30, background_color=self.theme["closeButton"])
+        check_btn = Button(text="Check", font_size=30, background_color=(0.2, 0.6, 0.2, 1))
         bar.add_widget(cancel_btn); bar.add_widget(check_btn)
         content.add_widget(bar)
         self.text_check_popup = Popup(title="Check words", content=content, size_hint=(0.95, 0.92), auto_dismiss=True)
@@ -1220,3 +1420,65 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         parent.bind(width=lambda *_: _recalc())
         lbl.bind(texture_size=lambda *_: _recalc())
         Clock.schedule_once(lambda dt: _recalc(), 0)
+
+    def _get_prefs(self) -> JsonStore:
+        if not hasattr(self, "_prefs"):
+            app = App.get_running_app()
+            ud = app.user_data_dir if app else os.getcwd()
+            self._prefs = JsonStore(os.path.join(ud, "prefs.json"))
+        return self._prefs
+
+    def _queue_main_lists_refresh(self):
+        try: Clock.unschedule(self._rebuild_main_lists)
+        except Exception: pass
+        Clock.schedule_once(self._rebuild_main_lists, 0)
+
+    def _rebuild_main_lists(self, *_):
+        # Header-Counts
+        total = len(getattr(self, "known_words", [])) + len(getattr(self, "new_words", []))
+        known_count = len(getattr(self, "known_words", []))
+        new_count = len(getattr(self, "new_words", []))
+        removed = getattr(self, "removed_words", set())
+        if hasattr(self, "known_header_btn"):
+            self.known_header_btn.text = f"Known words ({known_count}/{max(total, 1)})"
+        if hasattr(self, "new_header_btn"):
+            self.new_header_btn.text = f"New words ({new_count}/{max(total, 1)})"
+        if hasattr(self, "removed_header_btn"):
+            self.removed_header_btn.text = f"Removed words ({len(removed)})"
+
+        # Known list
+        if hasattr(self, "known_container") and self.known_container:
+            try:
+                self.known_container.clear_widgets()
+                for w in sorted(getattr(self, "known_words", []), key=lambda s: s.lower()):
+                    self.known_container.add_widget(
+                        Label(text=w, size_hint_y=None, height=36, font_size=22, color=self.theme.get("text", (1,1,1,1)))
+                    )
+            except Exception: pass
+
+        # New list
+        if hasattr(self, "new_container") and self.new_container:
+            try:
+                self.new_container.clear_widgets()
+                for w in sorted(getattr(self, "new_words", []), key=lambda s: s.lower()):
+                    self.new_container.add_widget(
+                        Label(text=w, size_hint_y=None, height=36, font_size=22, color=self.theme.get("text", (1,1,1,1)))
+                    )
+            except Exception: pass
+
+        # Removed list (neueste zuerst, falls removed_sequence existiert)
+        if hasattr(self, "removed_container") and self.removed_container:
+            try:
+                self.removed_container.clear_widgets()
+                seq = getattr(self, "removed_sequence", [])
+                if isinstance(seq, list) and seq:
+                    ordered = [w for w in seq if w in removed]
+                    rest = [w for w in removed if w not in set(ordered)]
+                    removed_display = ordered + sorted(rest, key=lambda s: s.lower())
+                else:
+                    removed_display = sorted(removed, key=lambda s: s.lower())
+                for w in removed_display:
+                    self.removed_container.add_widget(
+                        Label(text=w, size_hint_y=None, height=36, font_size=22, color=self.theme.get("text", (1,1,1,1)))
+                    )
+            except Exception: pass

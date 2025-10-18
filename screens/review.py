@@ -67,6 +67,23 @@ class ReviewScreen:
         reveal_btn.bind(on_release=lambda *_: setattr(reveal_btn, "disabled", True))
         next_btn.bind(on_release=lambda *_: setattr(reveal_btn, "disabled", False))
 
+        # Persist review order
+        modes = ("Random", "Newest", "Oldest")
+        prefs = self._get_prefs()
+        saved_mode = "Random"
+        try:
+            if prefs.exists("review"): saved_mode = prefs.get("review").get("order_mode") or "Random"
+        except Exception: pass
+        self.review_order_mode = saved_mode if saved_mode in modes else "Random"
+
+        # If you already have a Spinner for order, set it to saved mode and save on change:
+        # order_spin = Spinner(text=self.review_order_mode, values=modes, size_hint=(None, 1), width=180)
+        # def _on_order_change(inst, val):
+        #     self.review_order_mode = val
+        #     try: prefs.put("review", order_mode=val)
+        #     except Exception: pass
+        # order_spin.bind(text=_on_order_change)
+
         def _parse_date(s: str):
             s = (s or "").strip()
             if not s: return None
