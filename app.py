@@ -2,7 +2,7 @@ import sys, pathlib
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
 from kivy.app import App
-from VocaApp.screens.main import VocabularyApp
+from screens.main import VocabularyApp
 from kivy.core.window import Window
 Window.size = (800, 1000)
 

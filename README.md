@@ -1,26 +1,39 @@
 # VocaApp — Kivy Vocabulary Learning App
 
-A cross‑platform vocabulary learning app built with Python and Kivy. Add new words and expressions, edit meanings and examples, practice with Learn and Review modes, get pronunciation via TTS, and track your progress with a dashboard.
+A cross‑platform vocabulary learning app built with Python and Kivy. Add new words and expressions, edit meanings and examples, practice with Learn and Review modes, get pronunciation via AI Text-to-Speech, practice pronunciation via AI Speech-to-Text, and track your progress with a dashboard.
+
+## About me
+I developed this app as a beginner without formal software development experience. 
+My Python knowledge comes from a computer vision course at my university. 
+As a beginner, I welcome feedback and suggestions for improvement.
+
 
 ## Features
 
-- Add and manage words
-  - Meanings, parts of speech, examples
-  - IPA display (optional)
-- Expressions & phrases
-  - Quick add dialog with multiple examples
-- Learn mode
-  - Order: Random, Newest, Oldest
-  - Mark as learned, next, remove
+- Check your English level with B1 words from Cambridge
+<p>
+  <img src="images/start.png" alt="Start" width="360">
+  <img src="images/mainscreen.png" alt="Main screen" width="360">
+</p>
+
+- Add and manage words  
+![Manage meaning](images/meaningEditor.png)
+
 - Review mode
   - Text‑to‑speech (TTS) playback
   - Speech‑to‑text (STT) to practice pronunciation
-- Dictionary view
-  - Word details, meanings, examples, IPA, TTS
+  - Flashcard
+<p>
+  <img src="images/reviewMode1.png" alt="Flashcard" width="360">
+  <img src="images/reviewMode2.png" alt="Main screen" width="360">
+</p>
+
 - Dashboard
   - Bar charts for “Last 10 Days” and “Months”
   - Color‑coded bars (green = same/more than previous; red = less)
-  - Navigation arrows for days/months
+  - Navigation arrows for days/months  
+![Dashboard](images/dashboard.png)
+
 - Works on macOS and Windows (Python)
 
 ## Requirements
@@ -28,7 +41,6 @@ A cross‑platform vocabulary learning app built with Python and Kivy. Add new w
 - Python 3.10 or newer
 - Python packages (see requirements.txt):
   - kivy
-  - numpy
   - sounddevice
   - TTS (Coqui TTS, requires torch)
   - torch
@@ -43,11 +55,9 @@ A cross‑platform vocabulary learning app built with Python and Kivy. Add new w
 ### 1) Clone the repository
 
 ```bash
-git clone https://github.com/https://github.com/ad-tran/python-kivy-vocabulary-app.git
-cd <your-repo>/VocaApp
+git clone https://github.com/ad-tran/python-kivy-vocabulary-app.git
+cd python-kivy-vocabulary-app
 ```
-
-Replace <your-user>/<your-repo> with your GitHub path.
 
 ### 2) Create and activate a virtual environment
 
@@ -75,13 +85,13 @@ macOS (Homebrew):
 brew install ffmpeg portaudio
 ```
 
-Windows (choose one package manager):
+Windows (Open PowerShell as Administrator for this step):
 
-```powershell
+```PowerShell as Administrator
+# choco
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 # FFmpeg
-choco install ffmpeg -y
-# or
-winget install Gyan.FFmpeg
+choco install ffmpeg
 ```
 
 If sounddevice complains about PortAudio or build tools, install:
@@ -91,6 +101,9 @@ winget install Microsoft.VisualStudio.2022.BuildTools
 
 ### 4) Install Python dependencies
 
+(Windows: go back to normal cmd)
+
+This might take a while because of the AI Models for Text-to-Speech and Speech-to-Text
 From the repository root (where requirements.txt lives):
 
 ```bash
@@ -107,12 +120,12 @@ python -m pip install torch torchvision torchaudio --index-url https://download.
 
 Option A — run the module:
 ```bash
-python -m VocaApp.app
+python app.py
 ```
 
-Option B — run the script:
+Option B — run the script app.py in python-kivy-vocabulary-app:
 ```bash
-python VocaApp/app.py
+app.py
 ```
 
 Notes:
@@ -127,16 +140,7 @@ Notes:
   - Check audio devices and permissions. On macOS, grant microphone access in System Settings.
 - PyTorch installation issues
   - Upgrade pip/setuptools/wheel, then reinstall. For GPU, install the matching CUDA wheel for your system.
-- Coqui TTS model download slow/fails
-  - Try a stable network or pre‑download the model; ensure torch is installed correctly.
 
-## Project structure (overview)
-
-- VocaApp/app.py — Kivy App entrypoint
-- VocaApp/screens/ — UI screens and logic
-  - main.py, dashboard.py, review.py, learn.py, expressions.py, dictionary.py
-- VocaApp/services/ — services (e.g., tts.py, stt.py)
-- VocaApp/ui/ — custom widgets (e.g., charts, buttons)
 
 ## Contributing
 

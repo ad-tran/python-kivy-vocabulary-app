@@ -123,8 +123,8 @@ class BarChart(Widget):
     labels = ListProperty([])
     values = ListProperty([])
     max_value = NumericProperty(0)
-    bar_color = ListProperty([0.30, 0.60, 1.00, 1.0])      # Fallback-Farbe
-    bar_colors = ListProperty([])                           # NEU: pro Balken
+    bar_color = ListProperty([0.30, 0.60, 1.00, 1.0])     
+    bar_colors = ListProperty([])                           
     label_color = ListProperty([0.95, 0.98, 1.00, 1.0])
     axis_color  = ListProperty([0.70, 0.70, 0.80, 0.6])
     bg_color    = ListProperty([0, 0, 0, 0])
@@ -145,7 +145,7 @@ class BarChart(Widget):
         self.bind(pos=cb, size=cb, labels=cb, values=cb, max_value=cb,
                   label_sp=cb, x_label_angle=cb, padding=cb,
                   show_values=cb, value_sp=cb, value_color=cb, value_format=cb, value_offset=cb,
-                  bar_colors=cb)  # NEU
+                  bar_colors=cb)  
 
     def _redraw(self, *args):
         self.canvas.clear()

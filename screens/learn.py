@@ -2,7 +2,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.uix.spinner import Spinner
-from VocaApp.ui.widgets import RoundedButton as Button
+from ui.widgets import RoundedButton as Button
 import random
 import datetime as _dt
 

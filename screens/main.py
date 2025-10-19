@@ -20,23 +20,23 @@ from kivy.metrics import sp
 from kivy.app import App
 from kivy.storage.jsonstore import JsonStore
 import os
-from VocaApp.ui.widgets import RoundedButton as Button
-from VocaApp.services.tts import TTSService
-from VocaApp.services.stt import STTService
-from VocaApp.persistence.progress_store import ProgressStore
+from ui.widgets import RoundedButton as Button
+from services.tts import TTSService
+from services.stt import STTService
+from persistence.progress_store import ProgressStore
 from .dictionary import DictionaryScreen
 from .expressions import ExpressionsScreen
 from .learn import LearnScreen
 from .review import ReviewScreen
-from VocaApp.screens.dashboard import DashboardScreen
-from VocaApp.models.state import AppState
+from screens.dashboard import DashboardScreen
+from models.state import AppState
 
 class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScreen, DashboardScreen, BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # State MUSS vor Property-Settern existieren
         self.state = AppState()
-        # optionale Defaults – via Proxy-Properties, damit ProgressStore Felder vorfindet
+
         self.vocabulary = []
         self.known_words = set()
         self.new_words = set()
@@ -66,7 +66,11 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
             "danger": (0.85, 0.32, 0.35, 1),
             "accent": (0.55, 0.32, 0.75, 1),
             "closeButton": (0.5, 0.5, 0.5, 1),
+            "darkGreen": (0.1, 0.35, 0.0, 1),
+            "lightRed": (1.0, 0.3, 0.3, 1),
+            "red": (0.8, 0.3, 0.3, 1),
         }
+        
         self.tongue_twisters: set[str] = set()
         self.font_meanings_header = 35
         self.font_meaning_input = 30
@@ -101,7 +105,7 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         vocab_json = Path(__file__).resolve().parent.parent / "res" / "b1_word_from_cambridge.json"
         self.vocabulary = self.load_vocabulary_from_json(vocab_json)
         if not self.vocabulary:
-            self.show_error_popup("No vocabulary found. Please run B1.py.")
+            self.show_error_popup("No vocabulary found.")
             return
 
         self.displayed_words = set()
@@ -197,19 +201,19 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
             padding=(6, 6, 6, 4),
             spacing=6
         )
-        self.add_words_button = Button(text="Add words", font_size=22, size_hint=(None, 1), width=220, background_color=self.theme["success"])
+        self.add_words_button = Button(text="Add new words", font_size=22, size_hint=(None, 1), width=220, background_color=self.theme["surface"])
         self.add_words_button.bind(on_press=self.open_add_words_popup)
-        self.words_button = Button(text="Check text for new words", font_size=22, size_hint=(1, 1), background_color=self.theme["primary"])
+        self.words_button = Button(text="Check for new words from text", font_size=22, size_hint=(1, 1), background_color=self.theme["primary"])
         self.words_button.bind(on_press=self.open_text_check_popup)
         self.expressions_button = Button(text="Expressions", font_size=22, size_hint=(None, 1), width=220, background_color=self.theme["accent"])
         self.expressions_button.bind(on_press=self.open_expressions_popup)
         self.learn_button = Button(text="Learn", font_size=22, size_hint=(None, 1), width=160, background_color=self.theme["warning"])
         self.learn_button.bind(on_press=self.open_learn_mode)
-        self.learned_main_btn = Button(text="Learned words", font_size=22, size_hint=(None, 1), width=220, background_color=self.theme["surface"], color=self.theme["text"])
+        self.learned_main_btn = Button(text="Learned words", font_size=22, size_hint=(None, 1), width=220, background_color=self.theme["darkGreen"], color=self.theme["text"])
         self.learned_main_btn.bind(on_release=lambda *_: self.open_all_learned_popup(initial_only_tw=False))
-        self.review_main_btn = Button(text="Review", font_size=22, size_hint=(None, 1), width=180, background_color=self.theme["surface"], color=self.theme["text"])
+        self.review_main_btn = Button(text="Review", font_size=22, size_hint=(None, 1), width=180, background_color=self.theme["red"], color=self.theme["text"])
         self.review_main_btn.bind(on_release=self.open_review_popup)
-        self.dashboard_btn = Button(text="Dashboard", font_size=22, size_hint=(None, 1), width=200, background_color=self.theme["surface"], color=self.theme["text"])
+        self.dashboard_btn = Button(text="Dashboard", font_size=22, size_hint=(None, 1), width=200, background_color=self.theme["success"], color=self.theme["text"])
         self.dashboard_btn.bind(on_release=self.open_dashboard_popup)
         header.add_widget(self.add_words_button)
         header.add_widget(self.words_button)
@@ -252,6 +256,7 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
             color=(0.8, 0.8, 0.8, 1),
             halign='center', valign='middle'
         )
+        
         # Text umbrechen
         def _sync_hint(*_):
             try:
@@ -263,7 +268,7 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self.add_widget(self.hint_label)
 
         button_layout = BoxLayout(size_hint=(1, 0.15), spacing=10)
-        self.remove_button = Button(text="Remove", font_size=30, background_color=(0.8, 0.3, 0.3, 1))
+        self.remove_button = Button(text="Remove this word", font_size=30, background_color=(0.8, 0.3, 0.3, 1))
         self.remove_button.bind(on_press=self.remove_current_word)
         button_layout.add_widget(self.remove_button)
         self.next_button = Button(text="Next word", font_size=30, background_color=(0.4, 0.8, 0.4, 1))
@@ -294,10 +299,13 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         mid_box = BoxLayout(orientation='vertical', size_hint=(0.18, 1), spacing=8, padding=4)
         self.to_new_btn = Button(text=">>", halign='center', valign='middle', disabled=True, color=(0.1,0.1,0.1,1))
         self.to_new_btn.bind(on_press=lambda *_: self.move_to_new())
+        
         self.to_known_btn = Button(text="<<", halign='center', valign='middle', disabled=True, color=(0.1,0.1,0.1,1))
         self.to_known_btn.bind(on_press=lambda *_: self.move_to_known())
+        
         self.to_remove_btn = Button(text="x", halign='center', valign='middle', background_color=(0.6, 0.2, 0.2, 1), disabled=True)
         self.to_remove_btn.bind(on_press=lambda *_: self.remove_selected_word())
+        
         mid_box.add_widget(self.to_new_btn); mid_box.add_widget(self.to_known_btn); mid_box.add_widget(self.to_remove_btn)
         lists_layout.add_widget(mid_box)
 
@@ -305,6 +313,7 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
         self.new_header_btn = Button(text="New words (0/0)", size_hint=(1, 0.12), font_size=24, background_normal='', background_color=(0.45, 0.28, 0.0, 1), color=(0.95, 0.98, 1, 1))
         self.new_header_btn.bind(on_release=self.open_new_list_popup)
         right_box.add_widget(self.new_header_btn)
+        
         self.new_container = GridLayout(cols=1, spacing=4, size_hint_y=None, padding=(0,4))
         self.new_container.bind(minimum_height=self.new_container.setter('height'))
         new_scroll = ScrollView(size_hint=(1, 0.88)); new_scroll.add_widget(self.new_container)
@@ -409,9 +418,9 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
             fn = getattr(self, name, None)
             if callable(fn):
                 try:
-                    fn()          # Methoden ohne args
+                    fn()          
                 except TypeError:
-                    fn(None)      # Methoden, die (instance) erwarten
+                    fn(None)      
                 return
 
     def _on_new_word_clicked(self, *_):
@@ -901,8 +910,20 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
             font_size=25, size_hint=(1, 0.12), color=(0.9, 0.95, 1, 1)
         )
         content.add_widget(info)
-        self.add_words_input = TextInput(text="", multiline=True, font_size=30, size_hint=(1, 0.7))
+        self.add_words_input = TextInput(
+            text="",
+            multiline=True,
+            font_size=30,
+            size_hint=(1, 0.7),
+            background_normal='',
+            background_active='',
+            background_color=self.theme["surface"],
+            foreground_color=self.theme["text"],
+            cursor_color=self.theme["text"],
+            selection_color=(0.20, 0.52, 0.90, 0.35)
+        )
         content.add_widget(self.add_words_input)
+        
         bar = BoxLayout(size_hint=(1, 0.18), spacing=10)
         cancel_btn = Button(text="Cancel", font_size=30, background_color=self.theme["closeButton"])
         add_btn = Button(text="Add (New)", font_size=30, background_color=(0.2, 0.6, 0.2, 1))
@@ -964,7 +985,18 @@ class VocabularyApp(DictionaryScreen, ExpressionsScreen, LearnScreen, ReviewScre
             font_size=30, size_hint=(1, 0.14), color=(0.9, 0.95, 1, 1)
         )
         content.add_widget(info)
-        self.text_check_input = TextInput(text="", multiline=True, font_size=self.font_text_check_input, size_hint=(1, 0.68))
+        self.text_check_input = TextInput(
+            text="",
+            multiline=True,
+            font_size=self.font_text_check_input,
+            size_hint=(1, 0.68),
+            background_normal='',
+            background_active='',
+            background_color=self.theme["surface"],
+            foreground_color=self.theme["text"],
+            cursor_color=self.theme["text"],
+            selection_color=(0.20, 0.52, 0.90, 0.35)
+        )
         content.add_widget(self.text_check_input)
         bar = BoxLayout(size_hint=(1, 0.18), spacing=10)
         cancel_btn = Button(text="Cancel", font_size=30, background_color=self.theme["closeButton"])

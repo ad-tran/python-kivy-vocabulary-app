@@ -6,7 +6,7 @@ from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
 from kivy.uix.togglebutton import ToggleButton
-from VocaApp.ui.widgets import RoundedButton as Button
+from ui.widgets import RoundedButton as Button
 import re
 
 class DictionaryScreen:

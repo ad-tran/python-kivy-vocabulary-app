@@ -4,7 +4,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
-from VocaApp.ui.widgets import RoundedButton as Button, BarChart
+from ui.widgets import RoundedButton as Button, BarChart
 import datetime as _dt
 from kivy.graphics import Color, Rectangle
 from kivy.uix.anchorlayout import AnchorLayout

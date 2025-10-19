@@ -5,7 +5,7 @@ from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
-from VocaApp.ui.widgets import RoundedButton as Button
+from ui.widgets import RoundedButton as Button
 from kivy.uix.widget import Widget
 
 class ExpressionsScreen:
@@ -118,9 +118,7 @@ class ExpressionsScreen:
         title_lbl = Label(text="New expression / phrase", font_size=26, size_hint=(1, None), height=34, color=(0.9,0.95,1,1))
         content.add_widget(title_lbl)
         phrase_row = BoxLayout(size_hint=(1, None), height=64, spacing=10)
-        # phrase_lbl = Label(text="Text:", size_hint=(None, 1), width=90, font_size=22, color=(0.9,0.95,1,1))
         phrase_inp = TextInput(text="", multiline=False, font_size=30)
-        # phrase_row.add_widget(phrase_lbl)
         phrase_row.add_widget(phrase_inp)
         content.add_widget(phrase_row)
 
